@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BounceIQ — AI-Powered Bounce Rate & Exit Page Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --surface: #16161f;
+    --surface2: #1e1e2a;
+    --border: #2a2a3a;
+    --accent: #ff4d6d;
+    --accent2: #7c3aed;
+    --accent3: #06d6a0;
+    --text: #f0f0f8;
+    --text2: #9898b8;
+    --text3: #5a5a7a;
+    --glow: rgba(255,77,109,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* CUSTOM CURSOR */
+  .cursor { position: fixed; width: 12px; height: 12px; background: var(--accent); border-radius: 50%; pointer-events: none; z-index: 9999; transition: transform 0.1s ease; mix-blend-mode: difference; }
+  .cursor-ring { position: fixed; width: 36px; height: 36px; border: 1px solid rgba(255,77,109,0.4); border-radius: 50%; pointer-events: none; z-index: 9998; transition: transform 0.2s ease, width 0.2s, height 0.2s; }
+
+  /* NOISE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9997;
+    opacity: 0.4;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 3rem;
+    background: rgba(10,10,15,0.92);
+    border-bottom: 1px solid var(--border);
+  }
+  @supports ((-webkit-backdrop-filter: blur(20px)) or (backdrop-filter: blur(20px))) {
+    nav {
+      background: rgba(10,10,15,0.8);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+    }
+  }
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.3rem;
+    letter-spacing: -0.02em;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .nav-logo span { color: var(--accent); }
+  .nav-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a {
+    color: var(--text2); text-decoration: none;
+    font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-cta {
+    background: var(--accent); color: #fff;
+    border: none; padding: 0.6rem 1.4rem;
+    font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: none; transition: all 0.2s;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+  .nav-cta:hover { background: #ff2d5a; transform: translateY(-1px); }
+
+  /* PAGE SYSTEM */
+  .page { display: none; min-height: 100vh; padding-top: 80px; }
+  .page.active { display: block; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ===== HOME PAGE ===== */
+  .hero {
+    min-height: calc(100vh - 80px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 4rem 2rem;
+    position: relative; overflow: hidden;
+  }
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,77,109,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,77,109,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    overflow: hidden;
+  }
+  .hero-grid::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, var(--bg) 80%);
+    pointer-events: none;
+  }
+  .hero-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .hero-orb-1 { width: 500px; height: 500px; background: rgba(255,77,109,0.12); top: -100px; right: -100px; }
+  .hero-orb-2 { width: 400px; height: 400px; background: rgba(124,58,237,0.1); bottom: -80px; left: -80px; }
+  .hero-orb-3 { width: 300px; height: 300px; background: rgba(6,214,160,0.06); top: 30%; left: 20%; }
+
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    border: 1px solid var(--border); padding: 0.4rem 1rem;
+    border-radius: 100px; font-size: 0.7rem; color: var(--text2);
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 2rem;
+    animation: slideDown 0.6s ease both;
+  }
+  .hero-tag-dot { width: 6px; height: 6px; background: var(--accent3); border-radius: 50%; animation: pulse 1.5s infinite; }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    animation: slideDown 0.6s 0.1s ease both;
+    max-width: 900px;
+  }
+  .hero h1 em {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--accent);
+  }
+  .hero-sub {
+    font-size: 1rem; color: var(--text2); max-width: 520px;
+    line-height: 1.7; margin: 1.5rem 0 3rem;
+    animation: slideDown 0.6s 0.2s ease both;
+  }
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; animation: slideDown 0.6s 0.3s ease both; }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    border: none; padding: 0.9rem 2.2rem;
+    font-family: 'DM Mono', monospace; font-size: 0.8rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: none; transition: all 0.25s;
+    clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  }
+  .btn-primary:hover { background: #ff2d5a; transform: translateY(-2px); box-shadow: 0 12px 40px rgba(255,77,109,0.3); }
+  .btn-secondary {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border); padding: 0.9rem 2.2rem;
+    font-family: 'DM Mono', monospace; font-size: 0.8rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: none; transition: all 0.25s;
+    clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+
+  @keyframes slideDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+  /* STATS STRIP */
+  .stats-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: 0;
+  }
+  .stat-item {
+    padding: 2.5rem 2rem;
+    border-right: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    transition: background 0.3s;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-item:hover { background: var(--surface); }
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 3rem; font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--text);
+  }
+  .stat-num span { color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0.3rem; }
+
+  /* FEATURES SECTION */
+  .section { padding: 6rem 3rem; }
+  .section-label {
+    display: flex; align-items: center; gap: 1rem;
+    font-size: 0.7rem; color: var(--text3); letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 1rem;
+  }
+  .section-label::before { content: ''; width: 40px; height: 1px; background: var(--accent); }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 800; letter-spacing: -0.03em;
+    line-height: 1.05; margin-bottom: 1rem;
+  }
+  .section-title em { font-family: 'Instrument Serif', serif; font-style: italic; color: var(--accent); }
+  .section-sub { color: var(--text2); max-width: 480px; line-height: 1.7; font-size: 0.9rem; }
+
+  .features-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 4rem;
+  }
+  .feature-card {
+    background: var(--bg); padding: 2.5rem;
+    transition: background 0.3s; position: relative; overflow: hidden;
+  }
+  .feature-card:hover { background: var(--surface); }
+  .feature-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.3s;
+  }
+  .feature-card:hover::before { transform: scaleX(1); }
+  .feature-icon {
+    width: 48px; height: 48px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 1.5rem;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+  .feature-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 0.8rem; }
+  .feature-desc { font-size: 0.8rem; color: var(--text2); line-height: 1.7; }
+
+  /* HOW IT WORKS */
+  .hiw-section { padding: 6rem 3rem; background: var(--bg2); }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; margin-top: 4rem; }
+  .step {
+    position: relative; padding: 2rem;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .step:hover { border-color: var(--accent); transform: translateY(-4px); }
+  .step-num {
+    font-family: 'Syne', sans-serif; font-size: 4rem;
+    font-weight: 800; letter-spacing: -0.05em;
+    color: var(--border); line-height: 1;
+    margin-bottom: 1.5rem;
+    transition: color 0.3s;
+  }
+  .step:hover .step-num { color: var(--accent); }
+  .step-title { font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 700; margin-bottom: 0.6rem; }
+  .step-desc { font-size: 0.78rem; color: var(--text2); line-height: 1.6; }
+  .step-connector {
+    position: absolute; top: 50%; right: -2rem;
+    width: 2rem; height: 1px; background: var(--border);
+    display: flex; align-items: center; justify-content: flex-end;
+  }
+  .step-connector::after { content: '▶'; font-size: 0.5rem; color: var(--text3); margin-right: -4px; }
+
+  /* ===== DASHBOARD PAGE ===== */
+  .dashboard-layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 80px); }
+  .sidebar {
+    background: var(--bg2); border-right: 1px solid var(--border);
+    padding: 2rem 0; position: sticky; top: 80px; height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+  .sidebar-section { margin-bottom: 2rem; }
+  .sidebar-label { font-size: 0.65rem; color: var(--text3); letter-spacing: 0.15em; text-transform: uppercase; padding: 0 1.5rem; margin-bottom: 0.5rem; }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.7rem 1.5rem; font-size: 0.8rem; color: var(--text2);
+    cursor: none; transition: all 0.2s; border-left: 2px solid transparent;
+  }
+  .sidebar-item:hover, .sidebar-item.active { color: var(--text); background: var(--surface); border-left-color: var(--accent); }
+  .sidebar-item .icon { font-size: 1rem; width: 20px; }
+  .sidebar-badge {
+    margin-left: auto; background: var(--accent);
+    color: #fff; font-size: 0.6rem; padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  .dashboard-main { padding: 2.5rem; overflow-y: auto; }
+  .dash-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; }
+  .dash-title { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; }
+  .dash-sub { color: var(--text2); font-size: 0.78rem; margin-top: 0.3rem; }
+  .dash-controls { display: flex; gap: 0.75rem; }
+  .select-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text2); padding: 0.5rem 1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    cursor: none; transition: all 0.2s;
+  }
+  .select-btn:hover, .select-btn.active { border-color: var(--accent); color: var(--accent); }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 1.5rem; position: relative; overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .kpi-card:hover { border-color: var(--accent); }
+  .kpi-card::after {
+    content: ''; position: absolute;
+    bottom: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-card.red::after { background: var(--accent); }
+  .kpi-card.purple::after { background: var(--accent2); }
+  .kpi-card.green::after { background: var(--accent3); }
+  .kpi-card.blue::after { background: #38bdf8; }
+  .kpi-label { font-size: 0.68rem; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.8rem; }
+  .kpi-value { font-family: 'Syne', sans-serif; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.04em; }
+  .kpi-change { font-size: 0.7rem; margin-top: 0.4rem; }
+  .kpi-change.up { color: var(--accent3); }
+  .kpi-change.down { color: var(--accent); }
+  .kpi-sparkline { display: flex; align-items: flex-end; gap: 3px; margin-top: 1rem; height: 30px; }
+  .spark-bar { flex: 1; background: var(--border); border-radius: 2px; transition: height 0.5s ease; }
+  .kpi-card.red .spark-bar.active { background: var(--accent); opacity: 0.6; }
+  .kpi-card.purple .spark-bar.active { background: var(--accent2); opacity: 0.6; }
+  .kpi-card.green .spark-bar.active { background: var(--accent3); opacity: 0.6; }
+  .kpi-card.blue .spark-bar.active { background: #38bdf8; opacity: 0.6; }
+
+  /* Chart Area */
+  .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 1.5rem;
+  }
+  .chart-title { font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .chart-meta { font-size: 0.7rem; color: var(--text3); margin-bottom: 1.5rem; }
+
+  /* SVG Charts */
+  .chart-svg { width: 100%; height: 200px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding: 0 0.5rem; }
+  .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar {
+    width: 100%; border-radius: 3px 3px 0 0;
+    transition: opacity 0.2s;
+    position: relative;
+  }
+  .bar:hover { opacity: 0.8; }
+  .bar-label { font-size: 0.6rem; color: var(--text3); }
+
+  /* Table */
+  .table-card { background: var(--surface); border: 1px solid var(--border); margin-bottom: 1rem; }
+  .table-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 0.65rem; color: var(--text3); letter-spacing: 0.12em; text-transform: uppercase; padding: 0.75rem 1.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+  td { font-size: 0.78rem; padding: 0.85rem 1.5rem; border-bottom: 1px solid rgba(42,42,58,0.5); color: var(--text2); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); color: var(--text); }
+  .risk-badge {
+    display: inline-block; padding: 0.2rem 0.6rem;
+    font-size: 0.62rem; letter-spacing: 0.08em; border-radius: 3px;
+  }
+  .risk-high { background: rgba(255,77,109,0.15); color: var(--accent); border: 1px solid rgba(255,77,109,0.3); }
+  .risk-med { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .risk-low { background: rgba(6,214,160,0.12); color: var(--accent3); border: 1px solid rgba(6,214,160,0.25); }
+
+  /* Progress Bars */
+  .progress-wrap { margin-top: 0.5rem; }
+  .progress-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.8rem; }
+  .progress-label { font-size: 0.72rem; width: 120px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .progress-bar-bg { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+  .progress-val { font-size: 0.68rem; color: var(--text3); width: 40px; text-align: right; }
+
+  /* ===== PREDICTOR PAGE ===== */
+  .predictor-layout { max-width: 1000px; margin: 0 auto; padding: 4rem 2rem; }
+  .predictor-header { text-align: center; margin-bottom: 3rem; }
+  .predictor-form {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 2.5rem; margin-bottom: 2rem;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 0.68rem; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; }
+  input, select, textarea {
+    background: var(--bg2); border: 1px solid var(--border);
+    color: var(--text); padding: 0.75rem 1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    transition: border-color 0.2s; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--bg2); }
+
+  .predict-btn {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; padding: 1rem;
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: none; transition: all 0.3s;
+  }
+  .predict-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 12px 40px rgba(255,77,109,0.25); }
+
+  .prediction-result {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 2.5rem; display: none;
+  }
+  .prediction-result.show { display: block; animation: fadeIn 0.5s ease; }
+  .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem; }
+  .result-metric {
+    background: var(--bg2); border: 1px solid var(--border);
+    padding: 1.5rem; text-align: center;
+  }
+  .result-val { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.04em; }
+  .result-val.bad { color: var(--accent); }
+  .result-val.good { color: var(--accent3); }
+  .result-val.mid { color: #fbbf24; }
+  .result-label { font-size: 0.7rem; color: var(--text3); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  /* GAUGE */
+  .gauge-wrap { text-align: center; margin: 2rem 0; }
+  .gauge-svg { width: 220px; height: 120px; }
+
+  /* RECOMMENDATIONS */
+  .rec-list { margin-top: 1.5rem; }
+  .rec-item {
+    display: flex; gap: 1rem; padding: 1rem;
+    border-left: 3px solid var(--border);
+    margin-bottom: 0.75rem; background: var(--bg2);
+    transition: border-color 0.2s;
+  }
+  .rec-item:hover { border-left-color: var(--accent); }
+  .rec-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .rec-title { font-size: 0.82rem; font-weight: 500; color: var(--text); margin-bottom: 0.3rem; }
+  .rec-desc { font-size: 0.75rem; color: var(--text2); line-height: 1.5; }
+  .rec-impact { font-size: 0.68rem; color: var(--accent3); margin-top: 0.3rem; }
+
+  /* ===== ANALYTICS PAGE ===== */
+  .analytics-wrap { padding: 2.5rem; }
+  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; }
+  .analytics-card { background: var(--surface); border: 1px solid var(--border); padding: 2rem; }
+  .analytics-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+
+  /* Donut chart */
+  .donut-wrap { display: flex; align-items: center; gap: 2rem; }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend { font-size: 0.75rem; }
+  .legend-item { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-name { color: var(--text2); flex: 1; }
+  .legend-pct { color: var(--text); font-weight: 500; }
+
+  /* Heatmap */
+  .heatmap { display: grid; grid-template-columns: 40px repeat(7, 1fr); gap: 3px; font-size: 0.6rem; }
+  .hm-label { color: var(--text3); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+  .hm-cell {
+    aspect-ratio: 1; border-radius: 2px;
+    transition: transform 0.15s; cursor: none;
+  }
+  .hm-cell:hover { transform: scale(1.15); }
+  .hm-header { color: var(--text3); text-align: center; padding-bottom: 4px; }
+
+  /* LINE CHART */
+  .line-chart-area { position: relative; height: 180px; margin-top: 1rem; }
+
+  /* ===== REPORTS PAGE ===== */
+  .reports-wrap { padding: 2.5rem; }
+  .reports-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2rem; }
+  .report-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 2rem; transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .report-card:hover { border-color: var(--accent2); transform: translateY(-3px); }
+  .report-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(124,58,237,0.04), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .report-card:hover::before { opacity: 1; }
+  .report-type {
+    font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent2); margin-bottom: 1rem;
+  }
+  .report-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.3; }
+  .report-desc { font-size: 0.78rem; color: var(--text2); line-height: 1.6; margin-bottom: 1.5rem; }
+  .report-meta { display: flex; justify-content: space-between; align-items: center; }
+  .report-size { font-size: 0.68rem; color: var(--text3); }
+  .report-dl {
+    font-size: 0.7rem; color: var(--accent); cursor: none;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    display: flex; align-items: center; gap: 0.4rem;
+    border-bottom: 1px solid transparent; transition: border-color 0.2s;
+  }
+  .report-dl:hover { border-bottom-color: var(--accent); }
+
+  /* ===== API PAGE ===== */
+  .api-wrap { max-width: 900px; margin: 0 auto; padding: 4rem 2rem; }
+  .api-endpoints { margin-top: 2rem; }
+  .endpoint {
+    border: 1px solid var(--border); margin-bottom: 1rem;
+    background: var(--surface); overflow: hidden;
+  }
+  .endpoint-header {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem; cursor: none;
+    transition: background 0.2s;
+  }
+  .endpoint-header:hover { background: var(--surface2); }
+  .method {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+    padding: 0.25rem 0.6rem; border-radius: 3px;
+  }
+  .method-get { background: rgba(6,214,160,0.15); color: var(--accent3); border: 1px solid rgba(6,214,160,0.3); }
+  .method-post { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+  .method-delete { background: rgba(255,77,109,0.15); color: var(--accent); border: 1px solid rgba(255,77,109,0.3); }
+  .endpoint-path { font-family: 'DM Mono', monospace; font-size: 0.82rem; color: var(--text); }
+  .endpoint-desc { font-size: 0.75rem; color: var(--text3); margin-left: auto; }
+  .endpoint-body { padding: 1.5rem; border-top: 1px solid var(--border); display: none; }
+  .endpoint.open .endpoint-body { display: block; }
+  .code-block {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 1.2rem; font-size: 0.78rem; line-height: 1.7;
+    overflow-x: auto; position: relative;
+  }
+  .code-block .kw { color: var(--accent); }
+  .code-block .str { color: var(--accent3); }
+  .code-block .num { color: #fbbf24; }
+  .code-block .cm { color: var(--text3); }
+  .copy-btn {
+    position: absolute; top: 0.75rem; right: 0.75rem;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text2); padding: 0.3rem 0.7rem;
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    cursor: none; transition: all 0.2s;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* FOOTER */
+  footer {
+    background: var(--bg2); border-top: 1px solid var(--border);
+    padding: 3rem; display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2rem;
+  }
+  .footer-brand h3 { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; margin-bottom: 0.75rem; }
+  .footer-brand h3 span { color: var(--accent); }
+  .footer-brand p { font-size: 0.78rem; color: var(--text2); line-height: 1.7; max-width: 260px; }
+  .footer-col h4 { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); margin-bottom: 1rem; }
+  .footer-col a { display: block; font-size: 0.78rem; color: var(--text2); text-decoration: none; margin-bottom: 0.5rem; transition: color 0.2s; }
+  .footer-col a:hover { color: var(--accent); }
+  .footer-bottom {
+    text-align: center; padding: 1.5rem 3rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.7rem; color: var(--text3);
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 2rem; right: 2rem;
+    background: var(--surface); border: 1px solid var(--accent3);
+    color: var(--accent3); padding: 0.8rem 1.5rem;
+    font-size: 0.78rem; z-index: 1000;
+    transform: translateY(100px); opacity: 0;
+    transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* LOADING BAR */
+  .loading-bar {
+    position: fixed; top: 80px; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 0.4s ease; z-index: 90;
+  }
+  .loading-bar.active { transform: scaleX(1); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    .stats-strip { grid-template-columns: repeat(2, 1fr); }
+    .features-grid { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .dashboard-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-row { grid-template-columns: 1fr; }
+    .predictor-form { grid-template-columns: 1fr; }
+    .analytics-grid { grid-template-columns: 1fr; }
+    .reports-grid { grid-template-columns: 1fr; }
+    footer { grid-template-columns: 1fr 1fr; }
+    .result-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<div class="loading-bar" id="loadingBar"></div>
+<div class="toast" id="toast"></div>
+
+<!-- NAVIGATION -->
+<nav aria-label="Primary">
+  <a class="nav-logo" href="#" onclick="showPage('home'); return false;" aria-label="BounceIQ home" style="color: var(--text); text-decoration: none;">
+    <span class="nav-dot" aria-hidden="true"></span>
+    Bounce<span>IQ</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#" onclick="showPage('home')">Home</a></li>
+    <li><a href="#" onclick="showPage('dashboard')">Dashboard</a></li>
+    <li><a href="#" onclick="showPage('predictor')">Predictor</a></li>
+    <li><a href="#" onclick="showPage('analytics')">Analytics</a></li>
+    <li><a href="#" onclick="showPage('reports')">Reports</a></li>
+    <li><a href="#" onclick="showPage('api')">API</a></li>
+  </ul>
+  <button class="nav-cta" onclick="showPage('predictor')">Try Free →</button>
+</nav>
+
+<!-- ============================= HOME PAGE ============================= -->
+<div class="page active" id="page-home">
+
+  <section class="hero">
+    <div class="hero-grid"></div>
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="hero-orb hero-orb-3"></div>
+
+    <div class="hero-tag">
+      <div class="hero-tag-dot"></div>
+      AI-Powered Analytics · v2.4.0
+    </div>
+
+    <h1>
+      Predict <em>Bounce</em><br>Before It Happens
+    </h1>
+    <p class="hero-sub">
+      Machine learning models trained on 50M+ sessions. Know exactly which pages will lose your visitors—before they leave.
+    </p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="showPage('predictor')">Run Prediction →</button>
+      <button class="btn-secondary" onclick="showPage('dashboard')">View Dashboard</button>
+    </div>
+  </section>
+
+  <div class="stats-strip">
+    <div class="stat-item">
+      <div class="stat-num">94<span>%</span></div>
+      <div class="stat-label">Prediction Accuracy</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">50<span>M+</span></div>
+      <div class="stat-label">Sessions Analyzed</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">2.3<span>s</span></div>
+      <div class="stat-label">Avg. Prediction Time</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">12<span>K+</span></div>
+      <div class="stat-label">Websites Monitored</div>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="section-label">Core Features</div>
+    <div class="section-title">Intelligence at Every<br><em>Exit Point</em></div>
+    <div class="section-sub">From ML-powered predictions to real-time alerts — everything you need to stop visitors from leaving.</div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">ML Bounce Predictor</div>
+        <div class="feature-desc">Gradient boosted model analyzes 47 behavioral signals to predict bounce probability with 94% accuracy before a user leaves.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🚪</div>
+        <div class="feature-title">Exit Page Detection</div>
+        <div class="feature-desc">Identifies which pages act as "exit traps" — pages where users consistently abandon your site, ranked by impact.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Real-Time Alerts</div>
+        <div class="feature-desc">Instant Slack/email notifications when bounce rate on critical pages exceeds your defined threshold.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Cohort Analysis</div>
+        <div class="feature-desc">Segment bounce rates by device, traffic source, geography, and user type to find hidden patterns in your data.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔥</div>
+        <div class="feature-title">Behavioral Heatmaps</div>
+        <div class="feature-desc">Visualize where users scroll, click, and disengage. Correlate heatmap data directly with bounce probability scores.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💡</div>
+        <div class="feature-title">AI Recommendations</div>
+        <div class="feature-desc">GPT-powered engine generates specific, actionable fixes for each flagged page — with estimated bounce reduction impact.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="hiw-section">
+    <div style="max-width:1200px;margin:0 auto;">
+      <div class="section-label">How It Works</div>
+      <div class="section-title">From Data to <em>Action</em><br>in 4 Steps</div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-connector"></div>
+          <div class="step-num">01</div>
+          <div class="step-title">Install Tracking</div>
+          <div class="step-desc">Add our 2KB JS snippet to your site. Starts collecting behavioral signals immediately — no config needed.</div>
+        </div>
+        <div class="step">
+          <div class="step-connector"></div>
+          <div class="step-num">02</div>
+          <div class="step-title">AI Trains on Your Data</div>
+          <div class="step-desc">Our model learns your site's unique patterns. Custom model ready in under 24 hours with as few as 1,000 sessions.</div>
+        </div>
+        <div class="step">
+          <div class="step-connector"></div>
+          <div class="step-num">03</div>
+          <div class="step-title">Get Predictions</div>
+          <div class="step-desc">Real-time bounce probability scores for every page, every session. Ranked exit page risk dashboard updated hourly.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-title">Act on Insights</div>
+          <div class="step-desc">AI-generated recommendations tell you exactly what to fix, in what order, with expected impact on bounce rate.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background:var(--bg2); text-align:center;">
+    <div class="section-title" style="font-size:clamp(1.8rem,4vw,3rem);">
+      Ready to stop losing<br><em>visitors?</em>
+    </div>
+    <p style="color:var(--text2);max-width:400px;margin:1rem auto 2.5rem;font-size:0.9rem;line-height:1.7;">
+      Join 12,000+ websites using BounceIQ to recover lost conversions every day.
+    </p>
+    <button class="btn-primary" onclick="showPage('predictor')">Start Free Prediction →</button>
+  </section>
+
+  <footer>
+    <div class="footer-brand">
+      <h3>Bounce<span>IQ</span></h3>
+      <p>AI-powered bounce rate prediction and exit page analysis for modern web teams.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="#" onclick="showPage('dashboard')">Dashboard</a>
+      <a href="#" onclick="showPage('predictor')">Predictor</a>
+      <a href="#" onclick="showPage('analytics')">Analytics</a>
+      <a href="#" onclick="showPage('reports')">Reports</a>
+    </div>
+    <div class="footer-col">
+      <h4>Developers</h4>
+      <a href="#" onclick="showPage('api')">API Docs</a>
+      <a href="#">Python SDK</a>
+      <a href="#">JS SDK</a>
+      <a href="#">Webhooks</a>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <a href="#">About</a>
+      <a href="#">Blog</a>
+      <a href="#">Careers</a>
+      <a href="#">Contact</a>
+    </div>
+  </footer>
+  <div class="footer-bottom">© 2025 BounceIQ · Built with ML &amp; ♥ · All rights reserved</div>
+</div>
+
+<!-- ============================= DASHBOARD PAGE ============================= -->
+<div class="page" id="page-dashboard">
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <div class="sidebar-item active"><span class="icon">📊</span> Dashboard</div>
+        <div class="sidebar-item"><span class="icon">🚪</span> Exit Pages <span class="sidebar-badge">12</span></div>
+        <div class="sidebar-item"><span class="icon">📉</span> Bounce Rate</div>
+        <div class="sidebar-item"><span class="icon">⏱</span> Session Depth</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">AI Tools</div>
+        <div class="sidebar-item"><span class="icon">🧠</span> Predictions <span class="sidebar-badge">NEW</span></div>
+        <div class="sidebar-item"><span class="icon">💡</span> Recommendations</div>
+        <div class="sidebar-item"><span class="icon">🎯</span> Segments</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Reports</div>
+        <div class="sidebar-item"><span class="icon">📋</span> Weekly Digest</div>
+        <div class="sidebar-item"><span class="icon">📧</span> Alerts</div>
+        <div class="sidebar-item"><span class="icon">⚙</span> Settings</div>
+      </div>
+    </aside>
+
+    <main class="dashboard-main">
+      <div class="dash-header">
+        <div>
+          <div class="dash-title">Overview Dashboard</div>
+          <div class="dash-sub">Last updated: 2 minutes ago · Site: mywebsite.com</div>
+        </div>
+        <div class="dash-controls">
+          <button class="select-btn active">7D</button>
+          <button class="select-btn">30D</button>
+          <button class="select-btn">90D</button>
+          <button class="select-btn">Custom</button>
+        </div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card red">
+          <div class="kpi-label">Overall Bounce Rate</div>
+          <div class="kpi-value">64.2%</div>
+          <div class="kpi-change down">↑ +3.1% vs last period</div>
+          <div class="kpi-sparkline" id="spark1"></div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-label">High Risk Pages</div>
+          <div class="kpi-value">12</div>
+          <div class="kpi-change down">↑ +4 new this week</div>
+          <div class="kpi-sparkline" id="spark2"></div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Avg. Session Duration</div>
+          <div class="kpi-value">1:47</div>
+          <div class="kpi-change up">↓ -0:12 vs last period</div>
+          <div class="kpi-sparkline" id="spark3"></div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Exit Rate</div>
+          <div class="kpi-value">38.7%</div>
+          <div class="kpi-change up">↓ -1.2% vs last period</div>
+          <div class="kpi-sparkline" id="spark4"></div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-title">Bounce Rate Trend</div>
+          <div class="chart-meta">7-day rolling average vs predicted baseline</div>
+          <svg class="chart-svg" viewBox="0 0 500 180" id="trendChart">
+            <!-- Grid lines -->
+            <line x1="0" y1="45" x2="500" y2="45" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="4"/>
+            <line x1="0" y1="90" x2="500" y2="90" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="4"/>
+            <line x1="0" y1="135" x2="500" y2="135" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="4"/>
+            <!-- Predicted zone -->
+            <path d="M0,70 L71,68 L142,75 L213,65 L284,72 L355,68 L426,70 L500,65 L500,90 L426,92 L355,88 L284,92 L213,85 L142,95 L71,88 L0,90Z" fill="rgba(124,58,237,0.1)" stroke="none"/>
+            <!-- Actual line -->
+            <polyline points="0,80 71,75 142,88 213,72 284,85 355,60 426,68 500,55" fill="none" stroke="#ff4d6d" stroke-width="2.5" stroke-linejoin="round"/>
+            <!-- Predicted line -->
+            <polyline points="0,80 71,78 142,80 213,75 284,80 355,78 426,80 500,75" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="6,4" stroke-linejoin="round"/>
+            <!-- Dots -->
+            <circle cx="355" cy="60" r="5" fill="#ff4d6d"/>
+            <circle cx="500" cy="55" r="5" fill="#ff4d6d"/>
+            <!-- Labels -->
+            <text x="8" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Mon</text>
+            <text x="68" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Tue</text>
+            <text x="138" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Wed</text>
+            <text x="208" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Thu</text>
+            <text x="278" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Fri</text>
+            <text x="348" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Sat</text>
+            <text x="418" y="175" fill="#5a5a7a" font-size="10" font-family="DM Mono">Sun</text>
+            <!-- Legend -->
+            <rect x="310" y="8" width="12" height="3" fill="#ff4d6d" rx="1"/>
+            <text x="326" y="14" fill="#9898b8" font-size="9" font-family="DM Mono">Actual</text>
+            <rect x="380" y="8" width="12" height="3" fill="#7c3aed" rx="1"/>
+            <text x="396" y="14" fill="#9898b8" font-size="9" font-family="DM Mono">Predicted</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Exit by Device</div>
+          <div class="chart-meta">Current period</div>
+          <div class="bar-chart" style="margin-top:1rem;">
+            <div class="bar-group">
+              <div class="bar" style="height:75%;background:linear-gradient(180deg,#ff4d6d,rgba(255,77,109,0.4));"></div>
+              <div class="bar-label">Mobile</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar" style="height:45%;background:linear-gradient(180deg,#7c3aed,rgba(124,58,237,0.4));"></div>
+              <div class="bar-label">Desktop</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar" style="height:60%;background:linear-gradient(180deg,#38bdf8,rgba(56,189,248,0.4));"></div>
+              <div class="bar-label">Tablet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exit Pages Table -->
+      <div class="table-card">
+        <div class="table-header">
+          <div class="chart-title">Top Exit Pages · AI Risk Score</div>
+          <button class="select-btn" onclick="showPage('predictor')">Analyze Page →</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Page URL</th>
+              <th>Bounce Rate</th>
+              <th>Exit Rate</th>
+              <th>Sessions</th>
+              <th>AI Risk Score</th>
+              <th>Risk Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>/pricing</td><td>78.3%</td><td>65.1%</td><td>12,840</td><td>0.91</td><td><span class="risk-badge risk-high">HIGH</span></td></tr>
+            <tr><td>/checkout/step-2</td><td>72.1%</td><td>58.4%</td><td>8,321</td><td>0.87</td><td><span class="risk-badge risk-high">HIGH</span></td></tr>
+            <tr><td>/blog/category</td><td>64.5%</td><td>48.2%</td><td>22,100</td><td>0.74</td><td><span class="risk-badge risk-med">MEDIUM</span></td></tr>
+            <tr><td>/features</td><td>58.9%</td><td>41.3%</td><td>9,870</td><td>0.68</td><td><span class="risk-badge risk-med">MEDIUM</span></td></tr>
+            <tr><td>/about</td><td>42.1%</td><td>31.8%</td><td>5,210</td><td>0.41</td><td><span class="risk-badge risk-low">LOW</span></td></tr>
+            <tr><td>/contact</td><td>38.4%</td><td>28.9%</td><td>3,450</td><td>0.35</td><td><span class="risk-badge risk-low">LOW</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Traffic Source Breakdown -->
+      <div class="chart-card" style="margin-bottom:1rem;">
+        <div class="chart-title">Bounce Rate by Traffic Source</div>
+        <div class="chart-meta">Higher bar = higher bounce</div>
+        <div class="progress-wrap" style="margin-top:1rem;">
+          <div class="progress-row">
+            <div class="progress-label">Direct</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:72%;background:var(--accent);"></div></div>
+            <div class="progress-val">72%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Organic Search</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:58%;background:var(--accent2);"></div></div>
+            <div class="progress-val">58%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Paid Social</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:81%;background:#f59e0b;"></div></div>
+            <div class="progress-val">81%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Email Campaign</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:34%;background:var(--accent3);"></div></div>
+            <div class="progress-val">34%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Referral</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:45%;background:#38bdf8;"></div></div>
+            <div class="progress-val">45%</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ============================= PREDICTOR PAGE ============================= -->
+<div class="page" id="page-predictor">
+  <div class="predictor-layout">
+    <div class="predictor-header">
+      <div class="section-label" style="justify-content:center;">AI Predictor Engine</div>
+      <div class="section-title" style="text-align:center;">Predict Your Page's<br><em>Bounce Risk</em></div>
+      <p style="color:var(--text2);text-align:center;max-width:480px;margin:1rem auto;font-size:0.85rem;line-height:1.7;">
+        Enter page data below and our gradient-boosted ML model will predict bounce probability and exit risk with 94% accuracy.
+      </p>
+    </div>
+
+    <div class="predictor-form" id="predictorForm">
+      <div class="form-group">
+        <label>Page URL</label>
+        <input type="text" id="pageUrl" placeholder="https://yoursite.com/page" value="https://mysite.com/pricing">
+      </div>
+      <div class="form-group">
+        <label>Page Type</label>
+        <select id="pageType">
+          <option>Landing Page</option>
+          <option selected>Pricing Page</option>
+          <option>Blog Post</option>
+          <option>Product Page</option>
+          <option>Checkout</option>
+          <option>Home Page</option>
+          <option>Contact Page</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Avg. Page Load Time (ms)</label>
+        <input type="number" id="loadTime" placeholder="1200" value="2850">
+      </div>
+      <div class="form-group">
+        <label>Word Count</label>
+        <input type="number" id="wordCount" placeholder="500" value="320">
+      </div>
+      <div class="form-group">
+        <label>Number of CTAs</label>
+        <input type="number" id="ctaCount" placeholder="2" value="1">
+      </div>
+      <div class="form-group">
+        <label>Primary Traffic Source</label>
+        <select id="trafficSource">
+          <option>Organic Search</option>
+          <option selected>Paid Social</option>
+          <option>Direct</option>
+          <option>Email</option>
+          <option>Referral</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Mobile Traffic %</label>
+        <input type="number" id="mobileTraffic" placeholder="60" value="74">
+      </div>
+      <div class="form-group">
+        <label>Scroll Depth Average (%)</label>
+        <input type="number" id="scrollDepth" placeholder="45" value="28">
+      </div>
+      <div class="form-group">
+        <label>Images on Page</label>
+        <input type="number" id="imageCount" placeholder="3" value="1">
+      </div>
+      <div class="form-group">
+        <label>Avg. Session Duration (sec)</label>
+        <input type="number" id="sessionDur" placeholder="90" value="42">
+      </div>
+      <div class="form-group full">
+        <label>Additional Context (optional)</label>
+        <textarea rows="2" id="context" placeholder="e.g. Recently redesigned, new pricing tiers added, mobile nav changed...">Recently updated pricing tiers, removed free plan.</textarea>
+      </div>
+      <button class="predict-btn" onclick="runPrediction()">
+        ⚡ Run AI Prediction
+      </button>
+    </div>
+
+    <div class="prediction-result" id="predictionResult">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div class="chart-title" style="font-size:1.1rem;">Prediction Results — <span id="resultUrl" style="color:var(--text2);font-size:0.85rem;"></span></div>
+        <div style="font-size:0.7rem;color:var(--text3);">Model confidence: <span style="color:var(--accent3);">94.2%</span></div>
+      </div>
+
+      <!-- Gauge -->
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 220 120" id="gaugeViz">
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#06d6a0"/>
+              <stop offset="50%" style="stop-color:#fbbf24"/>
+              <stop offset="100%" style="stop-color:#ff4d6d"/>
+            </linearGradient>
+          </defs>
+          <!-- Background arc -->
+          <path d="M20,110 A90,90 0 0,1 200,110" fill="none" stroke="#2a2a3a" stroke-width="16" stroke-linecap="round"/>
+          <!-- Gradient arc (will be set by JS) -->
+          <path id="gaugeArc" d="M20,110 A90,90 0 0,1 200,110" fill="none" stroke="url(#gaugeGrad)" stroke-width="16" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="80"/>
+          <!-- Needle -->
+          <line id="gaugeNeedle" x1="110" y1="110" x2="110" y2="28" stroke="white" stroke-width="2" stroke-linecap="round" transform="rotate(-40, 110, 110)"/>
+          <circle cx="110" cy="110" r="5" fill="white"/>
+          <!-- Labels -->
+          <text x="14" y="125" fill="#06d6a0" font-size="9" font-family="DM Mono">LOW</text>
+          <text x="96" y="22" fill="#fbbf24" font-size="9" font-family="DM Mono">MED</text>
+          <text x="185" y="125" fill="#ff4d6d" font-size="9" font-family="DM Mono">HIGH</text>
+          <!-- Score -->
+          <text id="gaugeScore" x="110" y="90" text-anchor="middle" fill="white" font-size="22" font-family="Syne" font-weight="800">--</text>
+          <text x="110" y="105" text-anchor="middle" fill="#9898b8" font-size="8" font-family="DM Mono">BOUNCE PROB.</text>
+        </svg>
+      </div>
+
+      <div class="result-grid">
+        <div class="result-metric">
+          <div class="result-val bad" id="resBounce">--</div>
+          <div class="result-label">Predicted Bounce Rate</div>
+        </div>
+        <div class="result-metric">
+          <div class="result-val mid" id="resExit">--</div>
+          <div class="result-label">Exit Probability</div>
+        </div>
+        <div class="result-metric">
+          <div class="result-val" id="resRisk" style="font-size:1.8rem;">--</div>
+          <div class="result-label">Risk Classification</div>
+        </div>
+      </div>
+
+      <div style="margin-top:2rem;">
+        <div class="chart-title" style="margin-bottom:0.5rem;">⚡ Top Contributing Factors</div>
+        <div style="font-size:0.75rem;color:var(--text3);margin-bottom:1rem;">Features ranked by SHAP importance in this prediction</div>
+        <div id="factorBars"></div>
+      </div>
+
+      <div style="margin-top:2rem;">
+        <div class="chart-title" style="margin-bottom:1rem;">💡 AI Recommendations</div>
+        <div class="rec-list" id="recList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= ANALYTICS PAGE ============================= -->
+<div class="page" id="page-analytics">
+  <div class="analytics-wrap">
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">Deep Analytics</div>
+        <div class="dash-sub">Segmented bounce analysis · Model performance · Behavioral patterns</div>
+      </div>
+      <div class="dash-controls">
+        <button class="select-btn active">30D</button>
+        <button class="select-btn">90D</button>
+        <button class="select-btn">1Y</button>
+      </div>
+    </div>
+
+    <div class="analytics-grid">
+
+      <!-- Donut Chart -->
+      <div class="analytics-card">
+        <div class="analytics-title">Bounce Cause Distribution</div>
+        <div class="donut-wrap">
+          <svg class="donut-svg" viewBox="0 0 120 120" width="140" height="140">
+            <!-- Donut segments -->
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#ff4d6d" stroke-width="18" stroke-dasharray="113 170" stroke-dashoffset="-8" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#7c3aed" stroke-width="18" stroke-dasharray="71 212" stroke-dashoffset="-121" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#fbbf24" stroke-width="18" stroke-dasharray="45 238" stroke-dashoffset="-192" transform="rotate(-90 60 60)"/>
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#06d6a0" stroke-width="18" stroke-dasharray="34 249" stroke-dashoffset="-237" transform="rotate(-90 60 60)"/>
+            <text x="60" y="64" text-anchor="middle" fill="white" font-size="13" font-family="Syne" font-weight="800">100%</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ff4d6d;"></div><div class="legend-name">Slow Load Speed</div><div class="legend-pct">40%</div></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#7c3aed;"></div><div class="legend-name">Poor Mobile UX</div><div class="legend-pct">25%</div></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div><div class="legend-name">Content Mismatch</div><div class="legend-pct">16%</div></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#06d6a0;"></div><div class="legend-name">Weak CTA</div><div class="legend-pct">12%</div></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#5a5a7a;"></div><div class="legend-name">Other</div><div class="legend-pct">7%</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="analytics-card">
+        <div class="analytics-title">Hourly Bounce Heatmap <span style="font-size:0.7rem;color:var(--text3);">Darker = Higher Bounce</span></div>
+        <div class="heatmap" id="heatmapGrid"></div>
+      </div>
+
+      <!-- Model Performance -->
+      <div class="analytics-card">
+        <div class="analytics-title">Model Performance Metrics</div>
+        <div class="progress-wrap">
+          <div class="progress-row">
+            <div class="progress-label">Accuracy</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:94%;background:var(--accent3);"></div></div>
+            <div class="progress-val">94.2%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Precision</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:91%;background:#38bdf8;"></div></div>
+            <div class="progress-val">91.8%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">Recall</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:89%;background:var(--accent2);"></div></div>
+            <div class="progress-val">89.3%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">F1 Score</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:90%;background:#fbbf24;"></div></div>
+            <div class="progress-val">90.5%</div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">AUC-ROC</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:97%;background:var(--accent3);"></div></div>
+            <div class="progress-val">0.973</div>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+          <div style="font-size:0.68rem;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;">Feature Importance (Top 5)</div>
+          <div class="progress-wrap">
+            <div class="progress-row">
+              <div class="progress-label">Page Load Time</div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:87%;background:var(--accent);"></div></div>
+              <div class="progress-val">0.87</div>
+            </div>
+            <div class="progress-row">
+              <div class="progress-label">Scroll Depth</div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:78%;background:var(--accent);"></div></div>
+              <div class="progress-val">0.78</div>
+            </div>
+            <div class="progress-row">
+              <div class="progress-label">Traffic Source</div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:71%;background:var(--accent);"></div></div>
+              <div class="progress-val">0.71</div>
+            </div>
+            <div class="progress-row">
+              <div class="progress-label">Device Type</div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:65%;background:var(--accent);"></div></div>
+              <div class="progress-val">0.65</div>
+            </div>
+            <div class="progress-row">
+              <div class="progress-label">Session Duration</div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:59%;background:var(--accent);"></div></div>
+              <div class="progress-val">0.59</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Segment Comparison -->
+      <div class="analytics-card">
+        <div class="analytics-title">Bounce Rate by Segment</div>
+        <div style="margin-top:0.5rem;">
+          <div style="font-size:0.68rem;color:var(--text3);margin-bottom:1rem;">New vs Returning Users</div>
+          <svg viewBox="0 0 300 150" width="100%" style="height:160px;">
+            <line x1="40" y1="10" x2="40" y2="120" stroke="#2a2a3a" stroke-width="1"/>
+            <line x1="40" y1="120" x2="290" y2="120" stroke="#2a2a3a" stroke-width="1"/>
+            <!-- New users line -->
+            <polyline points="60,30 100,45 140,35 180,50 220,38 260,28" fill="none" stroke="#ff4d6d" stroke-width="2" stroke-linejoin="round"/>
+            <!-- Returning users line -->
+            <polyline points="60,80 100,75 140,85 180,70 220,75 260,68" fill="none" stroke="#06d6a0" stroke-width="2" stroke-linejoin="round"/>
+            <!-- Axis labels -->
+            <text x="55" y="135" fill="#5a5a7a" font-size="8" font-family="DM Mono">Jan</text>
+            <text x="95" y="135" fill="#5a5a7a" font-size="8" font-family="DM Mono">Feb</text>
+            <text x="135" y="135" fill="#5a5a7a" font-size="8" font-family="DM Mono">Mar</text>
+            <text x="175" y="135" fill="#5a5a7a" font-size="8" font-family="DM Mono">Apr</text>
+            <text x="215" y="135" fill="#5a5a7a" font-size="8" font-family="DM Mono">May</text>
+            <text x="255" y="135" fill="#5a5a7a" font-size="8" font-family="DM Mono">Jun</text>
+            <!-- Y-axis labels -->
+            <text x="5" y="35" fill="#5a5a7a" font-size="8" font-family="DM Mono">80%</text>
+            <text x="5" y="75" fill="#5a5a7a" font-size="8" font-family="DM Mono">50%</text>
+            <text x="5" y="115" fill="#5a5a7a" font-size="8" font-family="DM Mono">20%</text>
+            <!-- Legend -->
+            <rect x="60" y="145" width="10" height="3" fill="#ff4d6d" rx="1"/>
+            <text x="74" y="149" fill="#9898b8" font-size="8" font-family="DM Mono">New Users</text>
+            <rect x="155" y="145" width="10" height="3" fill="#06d6a0" rx="1"/>
+            <text x="169" y="149" fill="#9898b8" font-size="8" font-family="DM Mono">Returning</text>
+          </svg>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Full-width prediction confidence table -->
+    <div class="table-card" style="margin-top:1.5rem;">
+      <div class="table-header">
+        <div class="chart-title">AI Confidence by Page Type</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Page Type</th>
+            <th>Avg Bounce</th>
+            <th>Model Confidence</th>
+            <th>Sample Size</th>
+            <th>Trend (30D)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Checkout Flow</td><td>71.2%</td><td><span style="color:var(--accent3)">96.1%</span></td><td>42,300</td><td><span style="color:var(--accent)">↑ Worsening</span></td></tr>
+          <tr><td>Pricing Pages</td><td>68.8%</td><td><span style="color:var(--accent3)">95.3%</span></td><td>38,100</td><td><span style="color:var(--accent)">↑ Worsening</span></td></tr>
+          <tr><td>Blog Posts</td><td>55.4%</td><td><span style="color:var(--accent3)">93.7%</span></td><td>91,200</td><td><span style="color:#fbbf24">→ Stable</span></td></tr>
+          <tr><td>Landing Pages</td><td>62.1%</td><td><span style="color:var(--accent3)">94.8%</span></td><td>67,500</td><td><span style="color:#fbbf24">→ Stable</span></td></tr>
+          <tr><td>Product Pages</td><td>48.7%</td><td><span style="color:var(--accent3)">92.4%</span></td><td>29,800</td><td><span style="color:var(--accent3)">↓ Improving</span></td></tr>
+          <tr><td>Home Page</td><td>41.3%</td><td><span style="color:var(--accent3)">91.2%</span></td><td>88,400</td><td><span style="color:var(--accent3)">↓ Improving</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= REPORTS PAGE ============================= -->
+<div class="page" id="page-reports">
+  <div class="reports-wrap">
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">Reports & Exports</div>
+        <div class="dash-sub">Download detailed analysis, raw data, and AI-generated insight reports</div>
+      </div>
+      <button class="btn-primary" style="clip-path:none;">+ Generate Custom Report</button>
+    </div>
+
+    <div class="reports-grid">
+      <div class="report-card">
+        <div class="report-type">PDF Report</div>
+        <div class="report-title">Weekly Bounce Rate Summary</div>
+        <div class="report-desc">Executive-ready overview of bounce trends, top exit pages, and AI risk scores for the past 7 days.</div>
+        <div class="report-meta">
+          <div class="report-size">PDF · ~2.4 MB · Weekly</div>
+          <div class="report-dl" onclick="showToast('Downloading report...')">↓ Download</div>
+        </div>
+      </div>
+      <div class="report-card">
+        <div class="report-type">CSV Export</div>
+        <div class="report-title">Raw Session Data Export</div>
+        <div class="report-desc">Full session-level data including timestamps, page paths, scroll depth, and behavioral signals. Ready for Python analysis.</div>
+        <div class="report-meta">
+          <div class="report-size">CSV · ~18 MB · Custom range</div>
+          <div class="report-dl" onclick="showToast('Preparing CSV export...')">↓ Download</div>
+        </div>
+      </div>
+      <div class="report-card">
+        <div class="report-type">AI Report</div>
+        <div class="report-title">ML Prediction Audit Trail</div>
+        <div class="report-desc">Detailed log of all AI predictions made in the period, with feature importance breakdowns and confidence intervals.</div>
+        <div class="report-meta">
+          <div class="report-size">PDF · ~4.1 MB · Monthly</div>
+          <div class="report-dl" onclick="showToast('Generating audit report...')">↓ Download</div>
+        </div>
+      </div>
+      <div class="report-card">
+        <div class="report-type">Excel Report</div>
+        <div class="report-title">Exit Page Analysis Matrix</div>
+        <div class="report-desc">Multi-sheet workbook with exit page breakdown by device, source, geography and time-of-day. Pivot-ready format.</div>
+        <div class="report-meta">
+          <div class="report-size">XLSX · ~3.8 MB · On-demand</div>
+          <div class="report-dl" onclick="showToast('Building Excel file...')">↓ Download</div>
+        </div>
+      </div>
+      <div class="report-card">
+        <div class="report-type">JSON Export</div>
+        <div class="report-title">API Prediction History</div>
+        <div class="report-desc">Machine-readable JSON of all API prediction calls, results, and model versions. Perfect for integration testing.</div>
+        <div class="report-meta">
+          <div class="report-size">JSON · ~1.2 MB · Real-time</div>
+          <div class="report-dl" onclick="showToast('Fetching JSON data...')">↓ Download</div>
+        </div>
+      </div>
+      <div class="report-card">
+        <div class="report-type">PDF Report</div>
+        <div class="report-title">Recommendations Action Plan</div>
+        <div class="report-desc">Prioritized, AI-generated action items for every flagged page. Includes estimated bounce reduction and implementation effort.</div>
+        <div class="report-meta">
+          <div class="report-size">PDF · ~1.8 MB · Weekly</div>
+          <div class="report-dl" onclick="showToast('Compiling action plan...')">↓ Download</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scheduled Reports -->
+    <div class="table-card" style="margin-top:2rem;">
+      <div class="table-header">
+        <div class="chart-title">Scheduled Report Deliveries</div>
+        <button class="select-btn">+ Add Schedule</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Report Name</th><th>Frequency</th><th>Recipients</th><th>Format</th><th>Last Sent</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Weekly Bounce Summary</td><td>Every Monday 9AM</td><td>team@company.com</td><td>PDF</td><td>Apr 14, 2025</td><td><span class="risk-badge risk-low">ACTIVE</span></td></tr>
+          <tr><td>Daily Exit Page Alert</td><td>Daily 8AM</td><td>cto@company.com</td><td>Email</td><td>Today</td><td><span class="risk-badge risk-low">ACTIVE</span></td></tr>
+          <tr><td>Monthly ML Audit</td><td>1st of month</td><td>analytics@company.com</td><td>PDF</td><td>Apr 1, 2025</td><td><span class="risk-badge risk-low">ACTIVE</span></td></tr>
+          <tr><td>Q2 Deep Dive</td><td>Quarterly</td><td>board@company.com</td><td>PPTX</td><td>Jan 1, 2025</td><td><span class="risk-badge risk-med">PAUSED</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= API PAGE ============================= -->
+<div class="page" id="page-api">
+  <div class="api-wrap">
+    <div class="predictor-header">
+      <div class="section-label" style="justify-content:center;">Developer Docs</div>
+      <div class="section-title" style="text-align:center;"><em>REST API</em> Reference</div>
+      <p style="color:var(--text2);text-align:center;max-width:480px;margin:1rem auto;font-size:0.85rem;line-height:1.7;">
+        Integrate BounceIQ predictions directly into your Python backend, CI pipeline, or analytics stack.
+      </p>
+    </div>
+
+    <!-- Auth -->
+    <div class="chart-card" style="margin-bottom:1.5rem;">
+      <div class="chart-title">Authentication</div>
+      <div class="chart-meta" style="margin-bottom:1rem;">All requests must include your API key in the Authorization header.</div>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        <span class="cm"># Python example</span><br>
+        <span class="kw">import</span> requests<br><br>
+        headers = {<br>
+        &nbsp;&nbsp;<span class="str">"Authorization"</span>: <span class="str">"Bearer YOUR_API_KEY"</span>,<br>
+        &nbsp;&nbsp;<span class="str">"Content-Type"</span>: <span class="str">"application/json"</span><br>
+        }
+      </div>
+    </div>
+
+    <div class="api-endpoints">
+      <div class="endpoint open" id="ep1">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep1')">
+          <span class="method method-post">POST</span>
+          <span class="endpoint-path">/v1/predict/bounce</span>
+          <span class="endpoint-desc">Predict bounce rate for a page</span>
+        </div>
+        <div class="endpoint-body">
+          <div style="font-size:0.78rem;color:var(--text2);margin-bottom:1rem;line-height:1.6;">
+            Send page features and receive bounce probability, exit risk score, and contributing factors.
+          </div>
+          <div class="code-block" style="margin-bottom:1rem;">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <span class="kw">import</span> requests, json<br><br>
+            payload = {<br>
+            &nbsp;&nbsp;<span class="str">"url"</span>: <span class="str">"/pricing"</span>,<br>
+            &nbsp;&nbsp;<span class="str">"page_type"</span>: <span class="str">"pricing"</span>,<br>
+            &nbsp;&nbsp;<span class="str">"load_time_ms"</span>: <span class="num">2850</span>,<br>
+            &nbsp;&nbsp;<span class="str">"word_count"</span>: <span class="num">320</span>,<br>
+            &nbsp;&nbsp;<span class="str">"cta_count"</span>: <span class="num">1</span>,<br>
+            &nbsp;&nbsp;<span class="str">"traffic_source"</span>: <span class="str">"paid_social"</span>,<br>
+            &nbsp;&nbsp;<span class="str">"mobile_pct"</span>: <span class="num">74</span>,<br>
+            &nbsp;&nbsp;<span class="str">"scroll_depth"</span>: <span class="num">28</span>,<br>
+            &nbsp;&nbsp;<span class="str">"session_duration_sec"</span>: <span class="num">42</span><br>
+            }<br><br>
+            res = requests.post(<br>
+            &nbsp;&nbsp;<span class="str">"https://api.bounceiq.io/v1/predict/bounce"</span>,<br>
+            &nbsp;&nbsp;headers=headers, json=payload<br>
+            )<br>
+            <span class="kw">print</span>(res.json())
+          </div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.5rem;">Response</div>
+          <div class="code-block">
+            {<br>
+            &nbsp;&nbsp;<span class="str">"bounce_probability"</span>: <span class="num">0.812</span>,<br>
+            &nbsp;&nbsp;<span class="str">"exit_risk_score"</span>: <span class="num">0.741</span>,<br>
+            &nbsp;&nbsp;<span class="str">"risk_level"</span>: <span class="str">"HIGH"</span>,<br>
+            &nbsp;&nbsp;<span class="str">"confidence"</span>: <span class="num">0.942</span>,<br>
+            &nbsp;&nbsp;<span class="str">"top_factors"</span>: [<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;{<span class="str">"feature"</span>: <span class="str">"load_time_ms"</span>, <span class="str">"shap"</span>: <span class="num">0.34</span>},<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;{<span class="str">"feature"</span>: <span class="str">"scroll_depth"</span>, <span class="str">"shap"</span>: <span class="num">-0.28</span>}<br>
+            &nbsp;&nbsp;],<br>
+            &nbsp;&nbsp;<span class="str">"model_version"</span>: <span class="str">"v2.4.0"</span><br>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint" id="ep2">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep2')">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/v1/pages/risk-score</span>
+          <span class="endpoint-desc">Get risk scores for all tracked pages</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            res = requests.get(<br>
+            &nbsp;&nbsp;<span class="str">"https://api.bounceiq.io/v1/pages/risk-score"</span>,<br>
+            &nbsp;&nbsp;headers=headers,<br>
+            &nbsp;&nbsp;params={<span class="str">"site_id"</span>: <span class="str">"site_abc123"</span>, <span class="str">"limit"</span>: <span class="num">20</span>}<br>
+            )<br>
+            data = res.json()
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint" id="ep3">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep3')">
+          <span class="method method-post">POST</span>
+          <span class="endpoint-path">/v1/batch/predict</span>
+          <span class="endpoint-desc">Bulk predict for up to 100 pages</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            pages = [<br>
+            &nbsp;&nbsp;{<span class="str">"url"</span>: <span class="str">"/pricing"</span>, <span class="str">"load_time_ms"</span>: <span class="num">2850</span>, ...},<br>
+            &nbsp;&nbsp;{<span class="str">"url"</span>: <span class="str">"/checkout"</span>, <span class="str">"load_time_ms"</span>: <span class="num">1200</span>, ...},<br>
+            ]<br><br>
+            res = requests.post(<br>
+            &nbsp;&nbsp;<span class="str">"https://api.bounceiq.io/v1/batch/predict"</span>,<br>
+            &nbsp;&nbsp;headers=headers, json={<span class="str">"pages"</span>: pages}<br>
+            )
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint" id="ep4">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep4')">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/v1/analytics/summary</span>
+          <span class="endpoint-desc">Fetch analytics summary for a date range</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            res = requests.get(<br>
+            &nbsp;&nbsp;<span class="str">"https://api.bounceiq.io/v1/analytics/summary"</span>,<br>
+            &nbsp;&nbsp;headers=headers,<br>
+            &nbsp;&nbsp;params={<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"start"</span>: <span class="str">"2025-03-01"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"end"</span>: <span class="str">"2025-03-31"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"site_id"</span>: <span class="str">"site_abc123"</span><br>
+            &nbsp;&nbsp;}<br>
+            )
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint" id="ep5">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep5')">
+          <span class="method method-delete">DELETE</span>
+          <span class="endpoint-path">/v1/sites/{site_id}/data</span>
+          <span class="endpoint-desc">Delete all tracking data for a site</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            res = requests.delete(<br>
+            &nbsp;&nbsp;<span class="str">"https://api.bounceiq.io/v1/sites/site_abc123/data"</span>,<br>
+            &nbsp;&nbsp;headers=headers<br>
+            )<br>
+            <span class="cm"># Returns 204 No Content on success</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rate Limits -->
+    <div class="chart-card" style="margin-top:2rem;">
+      <div class="chart-title">Rate Limits & Plans</div>
+      <table style="margin-top:1rem;">
+        <thead><tr><th>Plan</th><th>Requests/min</th><th>Batch Size</th><th>History</th></tr></thead>
+        <tbody>
+          <tr><td>Free</td><td>10</td><td>5</td><td>7 days</td></tr>
+          <tr><td>Pro</td><td>100</td><td>50</td><td>90 days</td></tr>
+          <tr><td>Enterprise</td><td>Unlimited</td><td>500</td><td>Unlimited</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== CURSOR =====
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx - 6 + 'px';
+  cursor.style.top = my - 6 + 'px';
+});
+function animCursor() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  cursorRing.style.left = rx - 18 + 'px';
+  cursorRing.style.top = ry - 18 + 'px';
+  requestAnimationFrame(animCursor);
+}
+animCursor();
+
+// ===== PAGE NAVIGATION =====
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const lb = document.getElementById('loadingBar');
+  lb.classList.add('active');
+  setTimeout(() => lb.classList.remove('active'), 500);
+  window.scrollTo(0, 0);
+  if (id === 'analytics') buildHeatmap();
+}
+
+// ===== SPARKLINES =====
+function buildSparklines() {
+  const configs = [
+    { id: 'spark1', vals: [40,55,48,62,58,70,72,68,74,64], color: '#ff4d6d' },
+    { id: 'spark2', vals: [4,5,4,6,7,8,9,10,11,12], color: '#7c3aed' },
+    { id: 'spark3', vals: [120,115,130,108,125,118,112,110,108,107], color: '#06d6a0' },
+    { id: 'spark4', vals: [42,40,44,38,41,39,43,40,39,38.7], color: '#38bdf8' },
+  ];
+  configs.forEach(c => {
+    const el = document.getElementById(c.id);
+    if (!el) return;
+    const max = Math.max(...c.vals), min = Math.min(...c.vals);
+    c.vals.forEach((v, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'spark-bar active';
+      const h = 5 + ((v - min) / (max - min + 0.001)) * 25;
+      bar.style.height = h + 'px';
+      bar.style.background = c.color;
+      bar.style.opacity = '0.5';
+      el.appendChild(bar);
+    });
+  });
+}
+
+// ===== HEATMAP =====
+function buildHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  if (!grid || grid.innerHTML) return;
+  const days = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const hours = ['12a','2a','4a','6a','8a','10a','12p','2p','4p','6p','8p','10p'];
+  const colors = ['#ff4d6d','#7c3aed','#38bdf8','#06d6a0'];
+  days.forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'hm-header'; h.textContent = d;
+    grid.appendChild(h);
+  });
+  hours.forEach(hr => {
+    const hl = document.createElement('div');
+    hl.className = 'hm-label'; hl.textContent = hr;
+    grid.appendChild(hl);
+    for (let d = 0; d < 7; d++) {
+      const val = Math.random();
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell';
+      cell.style.background = `rgba(255,77,109,${0.05 + val * 0.75})`;
+      cell.title = `${hr} ${days[d+1]}: ${Math.round(val*80+20)}% bounce`;
+      grid.appendChild(cell);
+    }
+  });
+}
+
+// ===== SELECT BUTTONS =====
+document.querySelectorAll('.dash-controls').forEach(group => {
+  group.querySelectorAll('.select-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+});
+
+// ===== ENDPOINT TOGGLE =====
+function toggleEndpoint(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ===== COPY CODE =====
+function copyCode(btn) {
+  const block = btn.parentElement;
+  const text = block.innerText.replace('Copy','').trim();
+  navigator.clipboard.writeText(text).catch(() => {});
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1500);
+  showToast('Code copied to clipboard');
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== PREDICTOR ENGINE =====
+function runPrediction() {
+  const btn = document.querySelector('.predict-btn');
+  btn.textContent = '⏳ Running AI Model...';
+  btn.style.opacity = '0.7';
+
+  setTimeout(() => {
+    btn.textContent = '⚡ Run AI Prediction';
+    btn.style.opacity = '1';
+
+    // Gather inputs
+    const loadTime = parseFloat(document.getElementById('loadTime').value) || 1200;
+    const scrollDepth = parseFloat(document.getElementById('scrollDepth').value) || 50;
+    const sessionDur = parseFloat(document.getElementById('sessionDur').value) || 90;
+    const mobileTraffic = parseFloat(document.getElementById('mobileTraffic').value) || 50;
+    const ctaCount = parseFloat(document.getElementById('ctaCount').value) || 2;
+    const wordCount = parseFloat(document.getElementById('wordCount').value) || 500;
+    const pageType = document.getElementById('pageType').value;
+    const trafficSource = document.getElementById('trafficSource').value;
+    const url = document.getElementById('pageUrl').value || '/page';
+
+    // Simulate ML scoring
+    let score = 0.3;
+    if (loadTime > 3000) score += 0.22;
+    else if (loadTime > 2000) score += 0.12;
+    if (scrollDepth < 30) score += 0.18;
+    else if (scrollDepth < 50) score += 0.09;
+    if (sessionDur < 30) score += 0.15;
+    else if (sessionDur < 60) score += 0.07;
+    if (mobileTraffic > 70) score += 0.08;
+    if (ctaCount === 0) score += 0.10;
+    else if (ctaCount === 1) score += 0.04;
+    if (wordCount < 200) score += 0.07;
+    if (trafficSource === 'Paid Social') score += 0.09;
+    if (pageType === 'Checkout') score += 0.10;
+    if (pageType === 'Pricing Page') score += 0.06;
+    score = Math.min(0.97, Math.max(0.08, score + (Math.random() * 0.06 - 0.03)));
+
+    const exitScore = (score * 0.85 + Math.random() * 0.08).toFixed(2);
+    const bounceRate = (score * 100).toFixed(1) + '%';
+    const risk = score > 0.75 ? 'HIGH RISK' : score > 0.5 ? 'MEDIUM' : 'LOW RISK';
+    const riskColor = score > 0.75 ? 'bad' : score > 0.5 ? 'mid' : 'good';
+
+    // Update result display
+    document.getElementById('resultUrl').textContent = url;
+    document.getElementById('resBounce').textContent = bounceRate;
+    document.getElementById('resExit').textContent = (exitScore * 100).toFixed(1) + '%';
+    const riskEl = document.getElementById('resRisk');
+    riskEl.textContent = risk;
+    riskEl.className = 'result-val ' + riskColor;
+
+    // Gauge needle
+    const angle = -90 + (score * 180);
+    document.getElementById('gaugeNeedle').setAttribute('transform', `rotate(${angle - 90}, 110, 110)`);
+    const pct = score * 100;
+    const offset = 283 - (pct / 100) * 283;
+    document.getElementById('gaugeArc').setAttribute('stroke-dashoffset', offset);
+    document.getElementById('gaugeScore').textContent = pct.toFixed(0) + '%';
+
+    // Factor bars
+    const factors = [
+      { name: 'Page Load Time', val: Math.min(1, loadTime / 5000), color: '#ff4d6d' },
+      { name: 'Scroll Depth', val: 1 - scrollDepth / 100, color: '#7c3aed' },
+      { name: 'Session Duration', val: 1 - Math.min(1, sessionDur / 180), color: '#fbbf24' },
+      { name: 'Mobile Traffic', val: mobileTraffic / 100, color: '#38bdf8' },
+      { name: 'CTA Count', val: Math.max(0, 1 - ctaCount * 0.25), color: '#f87171' },
+    ];
+    const fb = document.getElementById('factorBars');
+    fb.innerHTML = factors.map(f => `
+      <div class="progress-row">
+        <div class="progress-label" style="width:140px">${f.name}</div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${f.val*100}%;background:${f.color}"></div></div>
+        <div class="progress-val">${(f.val).toFixed(2)}</div>
+      </div>`).join('');
+
+    // Recommendations
+    const recs = [];
+    if (loadTime > 2000) recs.push({ icon: '⚡', title: 'Reduce Page Load Time', desc: `Current: ${loadTime}ms. Compress images, defer non-critical JS, and enable server-side caching to get below 1500ms.`, impact: 'Expected bounce reduction: -12 to -18%' });
+    if (scrollDepth < 40) recs.push({ icon: '📝', title: 'Improve Above-the-Fold Content', desc: 'Users are not scrolling. Place your value proposition and CTA within the first viewport. Add visual anchors to encourage scrolling.', impact: 'Expected bounce reduction: -8 to -14%' });
+    if (ctaCount < 2) recs.push({ icon: '🎯', title: 'Add Clear Call-to-Actions', desc: `Only ${ctaCount} CTA detected. Add 2-3 contextual CTAs at scroll milestones (25%, 50%, 75%) to guide users toward conversion.`, impact: 'Expected bounce reduction: -7 to -11%' });
+    if (mobileTraffic > 65) recs.push({ icon: '📱', title: 'Optimize Mobile Experience', desc: `${mobileTraffic}% of traffic is mobile. Audit tap target sizes, mobile navigation, and font readability. Run Google Mobile Usability test.`, impact: 'Expected bounce reduction: -9 to -15%' });
+    if (sessionDur < 60) recs.push({ icon: '⏱', title: 'Increase Content Engagement', desc: 'Avg. session under 60s suggests content is not holding attention. Add video, interactive elements, or a clear content hook in first paragraph.', impact: 'Expected bounce reduction: -5 to -9%' });
+    if (recs.length === 0) recs.push({ icon: '✅', title: 'Page is Well Optimized', desc: 'All key metrics are within healthy ranges. Continue monitoring for changes in traffic source composition.', impact: 'Maintain current performance' });
+
+    const rl = document.getElementById('recList');
+    rl.innerHTML = recs.map(r => `
+      <div class="rec-item">
+        <div class="rec-icon">${r.icon}</div>
+        <div>
+          <div class="rec-title">${r.title}</div>
+          <div class="rec-desc">${r.desc}</div>
+          <div class="rec-impact">${r.impact}</div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('predictionResult').classList.add('show');
+    document.getElementById('predictionResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Prediction complete · 94.2% confidence');
+  }, 1800);
+}
+
+// ===== INIT =====
+buildSparklines();
+</script>
+</body>
+</html>
